@@ -1,0 +1,27 @@
+[
+  {
+    "pregunta": "¿La torta de zanahoria tiene gluten?",
+    "documento_id_esperado": "tortas_y_pasteles.md",
+    "respuesta_esperada": "Sí, contiene harina de trigo. No es apta para celíacos."
+  },
+  {
+    "pregunta": "¿Las medialunas de grasa tienen manteca?",
+    "documento_id_esperado": "facturas_y_masas.md",
+    "respuesta_esperada": "No, las medialunas de grasa se elaboran con grasa vacuna, no manteca."
+  },
+  {
+    "pregunta": "¿Qué productos son aptos para celíacos o sin TACC?",
+    "documento_id_esperado": "alergenos_y_dietas.md",
+    "respuesta_esperada": "La torta de chocolate sin gluten y las bebidas naturales son aptas para celíacos."
+  },
+  {
+    "pregunta": "¿La limonada de jengibre es apta para veganos?",
+    "documento_id_esperado": "bebidas_y_extras.md",
+    "respuesta_esperada": "No estrictamente, porque contiene miel de abeja. Los veganos estrictos deben ser informados."
+  },
+  {
+    "pregunta": "¿El cheesecake de frutos del bosque contiene frutos secos o nueces?",
+    "documento_id_esperado": "tortas_y_pasteles.md",
+    "respuesta_esperada": "No contiene frutos secos en su elaboración, pero el establecimiento los manipula."
+  }
+]

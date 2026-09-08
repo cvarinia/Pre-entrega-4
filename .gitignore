@@ -1,0 +1,10 @@
+# Claves — NUNCA subir a GitHub
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
