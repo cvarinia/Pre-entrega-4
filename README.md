@@ -11,7 +11,7 @@ Documentos .md
       ↓
   [RecursiveCharacterTextSplitter]  chunk_size=1000 chars
       ↓
-  [Google embedding-001] → vectores de 768 dimensiones
+  [HuggingFace all-mpnet-base-v2] → vectores de 768 dimensiones
       ↓
   [Pinecone Serverless] ← namespace="menu-pasteleria"
                             metadata: text, source, categoria, chunk_id
@@ -54,8 +54,8 @@ pasteleria-pinecone/
 ## Requisitos previos
 
 - Python 3.10 o superior
-- **Google AI Studio API Key** (gratuita): https://aistudio.google.com/app/apikey
 - **Pinecone API Key** (plan Starter gratuito): https://app.pinecone.io/
+- Los embeddings se generan localmente con HuggingFace — **no se necesita API key adicional**
 
 ---
 
@@ -96,7 +96,7 @@ python ingest.py
 
 El script hace automáticamente:
 - Verifica si el índice `pasteleria-rag` existe (lo crea si no)
-- Configura dimensión=768 (Google embedding-001), metric=cosine, AWS us-east-1
+- Configura dimensión=768 (all-mpnet-base-v2), metric=cosine, AWS us-east-1
 - Verifica si el namespace ya tiene vectores (evita duplicados)
 - Carga y fragmenta los 4 archivos .md
 - Sube los vectores con metadatos: `text`, `source`, `categoria`, `chunk_id`
@@ -153,8 +153,8 @@ Métricas obtenidas con el golden set de 5 preguntas sobre alérgenos y dietas:
 | Decisión | Valor | Justificación |
 |---|---|---|
 | Vector DB | Pinecone Serverless | Escalable, sin gestión de infraestructura |
-| Embeddings | Google embedding-001 | Gratuito, 768 dims, mismo modelo en ingesta y consulta |
-| Dimensión | 768 | Requerida por Google embedding-001 |
+| Embeddings | HuggingFace all-mpnet-base-v2 | Local, sin API key, 768 dims |
+| Dimensión | 768 | Requerida por all-mpnet-base-v2 |
 | top_k | 5 | Evita "Lost in the Middle" sin perder cobertura |
 | BM25 weight | 0.4 | Léxico útil para nombres técnicos exactos |
 | Semantic weight | 0.6 | Semántico domina para preguntas en lenguaje natural |
@@ -167,6 +167,5 @@ Métricas obtenidas con el golden set de 5 preguntas sobre alérgenos y dietas:
 
 | Variable | Descripción |
 |---|---|
-| `GOOGLE_API_KEY` | API Key de Google AI Studio |
 | `PINECONE_API_KEY` | API Key de Pinecone |
 | `PINECONE_INDEX_NAME` | Nombre del índice (default: `pasteleria-rag`) |

@@ -2,11 +2,11 @@
 rag_system.py — Sistema RAG con Recuperador Híbrido (BM25 + Pinecone).
 
 La clase RAGSystem combina dos tipos de búsqueda:
-  - Búsqueda semántica (vectorial): Pinecone con embeddings de Google.
+  - Búsqueda semántica (vectorial): Pinecone con embeddings de HuggingFace.
   - Búsqueda léxica (BM25): ranking por frecuencia de términos, ideal para
     palabras técnicas exactas como "torta de zanahoria" o "sin TACC".
 
-Los resultados de ambas se fusionan con Reciprocal Rank Fusion (RRF),
+Los resultados de ambas se fusionan con EnsembleRetriever de LangChain,
 dando pesos configurables a cada retriever.
 
 Uso desde código:
@@ -14,11 +14,6 @@ Uso desde código:
     sistema = RAGSystem()
     documentos = sistema.retrieve("¿La torta de zanahoria tiene gluten?")
 """
-
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import os
 from pathlib import Path
@@ -29,6 +24,7 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_pinecone import PineconeVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
+from langchain.retrievers import EnsembleRetriever
 
 load_dotenv()
 
@@ -86,7 +82,7 @@ class RAGSystem:
         self._setup()
 
     def _setup(self):
-        """Inicializa los dos retrievers."""
+        """Inicializa los dos retrievers y el EnsembleRetriever."""
 
         # --- Retriever 1: BM25 (léxico / keyword matching) ---
         print("🔤 Inicializando BM25Retriever (búsqueda léxica)...")
@@ -95,24 +91,24 @@ class RAGSystem:
         self.bm25_retriever.k = self.top_k
 
         # --- Retriever 2: Pinecone (semántico / vectorial) ---
-        # Con fallback a BM25 si hay error SSL de red
-        self.pinecone_retriever = None
-        try:
-            print("🧠 Inicializando PineconeVectorStore (búsqueda semántica)...")
-            pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-            index = pc.Index(host=INDEX_HOST)
-            vectorstore = PineconeVectorStore(
-                index=index,
-                embedding=get_embeddings(),
-                namespace=NAMESPACE,
-            )
-            self.pinecone_retriever = vectorstore.as_retriever(
-                search_kwargs={"k": self.top_k}
-            )
-            print("✅ Pinecone conectado correctamente.")
-        except Exception as e:
-            print(f"⚠️  Pinecone no disponible por error de red/SSL: {type(e).__name__}")
-            print("   → El sistema continúa usando solo BM25 (léxico).")
+        print("🧠 Inicializando PineconeVectorStore (búsqueda semántica)...")
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        index = pc.Index(host=INDEX_HOST)
+        vectorstore = PineconeVectorStore(
+            index=index,
+            embedding=get_embeddings(),
+            namespace=NAMESPACE,
+        )
+        self.pinecone_retriever = vectorstore.as_retriever(
+            search_kwargs={"k": self.top_k}
+        )
+        print("✅ Pinecone conectado correctamente.")
+
+        # --- Ensemble: combina BM25 + Pinecone con pesos configurables ---
+        self.ensemble_retriever = EnsembleRetriever(
+            retrievers=[self.bm25_retriever, self.pinecone_retriever],
+            weights=[self.bm25_weight, self.semantic_weight]
+        )
 
         print(
             f"✅ RAGSystem listo "
@@ -122,35 +118,9 @@ class RAGSystem:
     def retrieve(self, query: str) -> list[Document]:
         """
         Recibe una consulta y devuelve los top-k documentos más relevantes.
-        Fusión manual con Reciprocal Rank Fusion (RRF), equivalente al EnsembleRetriever.
-
-        RRF: cada doc recibe score = weight / (60 + rank). Los docs que aparecen
-        bien en ambas listas acumulan más puntaje y suben al tope.
+        Usa EnsembleRetriever de LangChain para combinar BM25 y Pinecone.
         """
-        bm25_docs = self.bm25_retriever.invoke(query)
-
-        # Si Pinecone no está disponible, retornar solo BM25
-        if self.pinecone_retriever is None:
-            return bm25_docs[: self.top_k]
-
-        pinecone_docs = self.pinecone_retriever.invoke(query)
-
-        doc_scores: dict[str, float] = {}
-        doc_objects: dict[str, Document] = {}
-
-        for rank, doc in enumerate(pinecone_docs):
-            key = doc.page_content[:120]
-            doc_scores[key] = doc_scores.get(key, 0.0) + self.semantic_weight / (60 + rank + 1)
-            doc_objects[key] = doc
-
-        for rank, doc in enumerate(bm25_docs):
-            key = doc.page_content[:120]
-            doc_scores[key] = doc_scores.get(key, 0.0) + self.bm25_weight / (60 + rank + 1)
-            if key not in doc_objects:
-                doc_objects[key] = doc
-
-        sorted_keys = sorted(doc_scores, key=lambda k: doc_scores[k], reverse=True)
-        return [doc_objects[k] for k in sorted_keys[: self.top_k]]
+        return self.ensemble_retriever.invoke(query)[: self.top_k]
 
     def retrieve_con_scores(self, query: str) -> list[tuple[Document, str]]:
         """

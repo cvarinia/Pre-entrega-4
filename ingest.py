@@ -5,14 +5,12 @@ Qué hace:
 1. Verifica si el índice existe en Pinecone y lo crea si no.
 2. Verifica si el namespace ya tiene datos (evita re-indexar y gastar cuota).
 3. Carga archivos .md de /data y los fragmenta con RecursiveCharacterTextSplitter.
-4. Genera embeddings con Google (768 dims) y los sube a Pinecone.
+4. Genera embeddings con HuggingFace (768 dims) y los sube a Pinecone.
 5. Incluye metadatos avanzados: texto completo, fuente, categoría y chunk_id.
 
 Uso:
     python ingest.py
 """
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
 import os
 import time
 from pathlib import Path
@@ -30,7 +28,7 @@ load_dotenv()
 DATA_DIR = "./data"
 INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "pasteleria-rag")
 NAMESPACE = "menu-pasteleria"
-DIMENSION = 768          # Google models/embedding-001 produce vectores de 768 dims
+DIMENSION = 768          # sentence-transformers/all-mpnet-base-v2 produce vectores de 768 dims
 METRIC = "cosine"
 
 # Chunking: ~250 chars ≈ 60 tokens (adecuado para fichas de producto cortas)
@@ -156,7 +154,7 @@ def ingest_documents() -> None:
 
     # 6. Generar embeddings y subir a Pinecone
     print(f"\n⬆️  Subiendo a Pinecone (namespace='{NAMESPACE}')...")
-    print("   Generando embeddings con Google embedding-001 (768 dims)...")
+    print("   Generando embeddings con HuggingFace all-mpnet-base-v2 (768 dims)...")
 
     embeddings = get_embeddings()
     PineconeVectorStore.from_documents(
